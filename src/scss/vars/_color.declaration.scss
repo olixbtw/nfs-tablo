@@ -1,0 +1,47 @@
+// not included in /share so that css won't be overcluttered in modules
+// copy to _color.scss to use across .modules
+
+// for light theme use
+// :root#light {
+:root {
+  --white: #f2f3f7;
+  --black: #2d2731;
+
+  --grey1: #23272a;
+  --grey2: #3a4048;
+  --grey3: #869ba8;
+  --grey4: #a4b7c3;
+  --grey5: #e6ecf1;
+  --grey6: #f6f6f6;
+
+  --yellow: #fee75c;
+  --green: #57f287;
+
+  --fuchsia: #eb459e;
+  --red: #ed4245;
+  --brown: #582812;
+
+  --blue: #404eed;
+  --purple: #594acd;
+
+  --accent1: #5865f2;
+  --accent2: #5663f7;
+  --accent3: #7289da;
+
+  // Primary
+  // #5b8ccc
+  // P — Light
+  // #8ebcff
+  // P — Dark
+  // #225f9b
+  // Text on P
+  // #000000
+  // Secondary
+  // #e284a1
+  // S — Light
+  // #ffb5d2
+  // S — Dark
+  // #ae5573
+  // Text on S
+  // #000000
+}

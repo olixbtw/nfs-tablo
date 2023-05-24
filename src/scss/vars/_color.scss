@@ -1,0 +1,25 @@
+// reexport css properties to scss variables
+// so we can reuse in .modules
+$c-white: var(--white);
+$c-black: var(--black);
+
+$c-grey1: var(--grey1);
+$c-grey2: var(--grey2);
+$c-grey3: var(--grey3);
+$c-grey4: var(--grey4);
+$c-grey5: var(--grey5);
+$c-grey6: var(--grey6);
+
+$c-yellow: var(--yellow);
+$c-green: var(--green);
+
+$c-fuchsia: var(--fuchsia);
+$c-red: var(--red);
+$c-brown: var(--brown);
+
+$c-blue: var(--blue);
+$c-purple: var(--purple);
+
+$c-accent1: var(--accent1);
+$c-accent2: var(--accent2);
+$c-accent3: var(--accent3);

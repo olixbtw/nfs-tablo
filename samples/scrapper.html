@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SCRAPPER</title>
+  </head>
+  <body>
+    <h1>NFS-STATS SCRAPPER</h1>
+
+    <input id="input-interval" type="number" />s
+    <br />
+    <button id="btn-update">update</button>
+
+    <br />
+    <br />
+
+    <button id="btn-start">start</button>
+    <button id="btn-stop">stop</button>
+
+    <br />
+
+    <p>
+      <b id="msg-status"></b>
+      <br />
+      <br />
+      <br />
+      <b id="msg-message"></b>
+    </p>
+
+    <script>
+      // initialise
+      const IntervalInput = document.getElementById("input-interval");
+      const BtnUpdate = document.getElementById("btn-update");
+      const BtnStart = document.getElementById("btn-start");
+      const BtnStop = document.getElementById("btn-stop");
+      const MsgStatus = document.getElementById("msg-status");
+      const MsgMessage = document.getElementById("msg-message");
+
+      let prevString = "{}";
+      let scrapDataIntervalInstance;
+      let intervalValue_Seconds = 5;
+
+      // functions
+      function fetchData() {
+        fetch("https://nfs-stats.herokuapp.com/getmaininfo.json")
+          .then((response) => response.json())
+          .then(successCallback)
+          .catch(errorCallback);
+      }
+
+      function errorCallback(error) {
+        MsgMessage.innerText = "API is down";
+        console.error(error);
+      }
+
+      function successCallback(data) {
+        MsgMessage.innerText = "";
+
+        const date = new Date();
+        const year = `${date.getFullYear()}`.slice(2);
+        const month = date.getMonth() + 1;
+        const day = date.getDate();
+
+        const hours = date.getHours();
+        const minutes = date.getMinutes();
+        const seconds = date.getSeconds();
+
+        const currentDate = `${year}_${month}_${day}`;
+        // const currentTime = `${hours}_${minutes}_${seconds}`;
+        // const timeStamp = `${date.getTime()}`;
+
+        const fileName = `${currentDate}-getmaininfo.json`;
+
+        const fetchDataString = JSON.stringify(data);
+
+        const isFilesIdentical = checkIdenticalWithPrevious(fetchDataString);
+        if (!isFilesIdentical) saveFile(fetchDataString, fileName);
+      }
+
+      function checkIdenticalWithPrevious(currentString) {
+        // check if identical =>
+        // true if not changed
+        // false if changed
+        const previousObject = JSON.parse(prevString);
+        const currentObject = JSON.parse(currentString);
+
+        // TODO: timestamps are different atm
+        // that's why always returns false
+        // => remember other value than the whole Object
+
+        const isIdentical =
+          JSON.stringify(previousObject) === JSON.stringify(currentObject);
+        return isIdentical;
+      }
+
+      function saveFile(content, fileName, contentType = "text/plain") {
+        const a = document.createElement("a");
+        const file = new Blob([content], { type: contentType });
+        a.href = URL.createObjectURL(file);
+        a.download = fileName;
+        a.click();
+      }
+
+      function setStatus() {
+        const newText = scrapDataIntervalInstance ? "PULLING" : "DISABLED";
+        const newColor = scrapDataIntervalInstance ? "green" : "red";
+
+        MsgStatus.innerText = newText;
+        MsgStatus.style.color = newColor;
+
+        BtnStop.disabled = !scrapDataIntervalInstance;
+        BtnStart.disabled = !!scrapDataIntervalInstance;
+      }
+
+      const onToggle = () => {
+        MsgMessage.innerText = "";
+        setStatus();
+      };
+
+      // handlers
+      const handleUpdate = () => {
+        const roundedVal = Math.round(IntervalInput.value);
+
+        IntervalInput.value = roundedVal;
+        intervalValue_Seconds = roundedVal;
+
+        if (scrapDataIntervalInstance) {
+          handleStop();
+          handleStart();
+        }
+      };
+
+      const handleStop = () => {
+        if (scrapDataIntervalInstance) {
+          clearInterval(scrapDataIntervalInstance);
+          scrapDataIntervalInstance = undefined;
+
+          onToggle();
+        }
+      };
+
+      const handleStart = () => {
+        if (!scrapDataIntervalInstance) {
+          scrapDataIntervalInstance = setInterval(
+            fetchData,
+            intervalValue_Seconds * 1000
+          );
+
+          onToggle();
+        }
+      };
+
+      // listenters
+      BtnUpdate.addEventListener("click", handleUpdate);
+      BtnStop.addEventListener("click", handleStop);
+      BtnStart.addEventListener("click", handleStart);
+
+      //execution
+      IntervalInput.value = intervalValue_Seconds;
+      setStatus();
+    </script>
+  </body>
+</html>

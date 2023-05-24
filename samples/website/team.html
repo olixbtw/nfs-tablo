@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Onboard</title>
+    <script src="./js/jquery.js"></script>
+    <link rel="stylesheet" type="text/css" href="./css/style.css" />
+    <link href="./css/reveal.css" rel="stylesheet" />
+    <script src="./js/jquery.reveal.js"></script>
+    <script>
+      $(document).ready(function () {
+        /* ================== get GET vars  ==================*/
+        var getUrlParameter = function getUrlParameter(sParam) {
+          var sPageURL = window.location.search.substring(1),
+            sURLVariables = sPageURL.split("&"),
+            sParameterName,
+            i;
+
+          for (i = 0; i < sURLVariables.length; i++) {
+            sParameterName = sURLVariables[i].split("=");
+
+            if (sParameterName[0] === sParam) {
+              return sParameterName[1] === undefined
+                ? true
+                : decodeURIComponent(sParameterName[1]);
+            }
+          }
+        };
+
+        /* ================== menu  ==================*/
+
+        $("#menu_icon").click(function () {
+          $(this).toggleClass("open");
+          $(".main_menu_layer").toggleClass("opened");
+        });
+
+        /* ================== init vars  ==================*/
+
+        var debug = getUrlParameter("debug"); //debug mode
+        var link = window.location.origin;
+        var compTeamNameFirst = getUrlParameter("compTeamNameFirst");
+        var compTeamNameSecond = getUrlParameter("compTeamNameSecond");
+        var team_number = getUrlParameter("team");
+        var url =
+          link +
+          "/getmaininfo.json?team=" +
+          compTeamNameFirst +
+          "&compTeamNameFirst=" +
+          compTeamNameFirst +
+          "&compTeamNameSecond=" +
+          compTeamNameSecond;
+        var update_interval = 1000; //update data interval msek
+        var update_interval_again = 10000; //again try interval if error
+        var time_to_show_laspittime = 15;
+        var update_data_timer;
+        var flag_error = 0; //show err msg
+        var in_pit;
+
+        /* ================== log record  ==================*/
+        function log(text, type, show_mode) {
+          if (show_mode == "debug") {
+            if (debug) {
+              //check debug true
+              switch (type) {
+                case "good":
+                  console.info("%c" + text, "background: #57b567; color: #fff");
+
+                  break;
+                case "bad":
+                  console.error(
+                    "%c" + text,
+                    "background: #b55757; color: #fff"
+                  );
+
+                  break;
+                default:
+                  console.log(text);
+
+                  break;
+              }
+            }
+          } else {
+            switch (type) {
+              case "good":
+                console.info("%c" + text, "background: #57b567; color: #fff");
+
+                break;
+              case "bad":
+                console.error("%c" + text, "background: #b55757; color: #fff");
+
+                break;
+              default:
+                console.log(text);
+
+                break;
+            }
+          }
+        }
+
+        /* ================== show hide mass error   ==================*/
+        function show_err_window(status) {
+          if (status) {
+            $("#err").show();
+          } else {
+            $("#err").hide();
+          }
+        }
+
+        /* ================== update ==================*/
+        $.ajax({
+          type: "GET",
+          url: url,
+          dataType: "json",
+          success: function (json) {
+            //ini team list
+            $(".team_list").empty();
+            $(".team_list").append(
+              '<option value="0" selected="">ВЫБЕРИТЕ КОМАНДУ</option>'
+            );
+
+            $.each(json.onTablo["teams"], function (key, data) {
+              if (compTeamNameFirst == data.number) {
+                $(".team_list_now").append(
+                  '<option selected="" value="' +
+                    data.number +
+                    '">' +
+                    data.number +
+                    " | " +
+                    data.teamName +
+                    "</option>"
+                );
+              } else {
+                $(".team_list_now").append(
+                  '<option value="' +
+                    data.number +
+                    '">' +
+                    data.number +
+                    " | " +
+                    data.teamName +
+                    "</option>"
+                );
+              }
+
+              if (compTeamNameSecond == data.number) {
+                $(".team_list_to_com").append(
+                  '<option selected="" value="' +
+                    data.number +
+                    '">' +
+                    data.number +
+                    " | " +
+                    data.teamName +
+                    "</option>"
+                );
+              } else {
+                $(".team_list_to_com").append(
+                  '<option value="' +
+                    data.number +
+                    '">' +
+                    data.number +
+                    " | " +
+                    data.teamName +
+                    "</option>"
+                );
+              }
+            });
+          },
+          error: function (e) {
+            log("Update error :..(", "bad");
+          },
+        });
+
+        function update_data(check_cval) {
+          if (typeof team_number !== "undefined") {
+            $.ajax({
+              type: "GET",
+              url: url,
+              dataType: "json",
+              success: function (json) {
+                setTimeout(update_data, update_interval);
+                show_err_window(false);
+
+                //compare
+                if (json.onTablo.compLag != 0) {
+                  $(".compLag").html(json.onTablo.compLag);
+                } else {
+                  //set lag for first place
+                  $(".lag").html(json.onTablo.teams2[team_number].lag);
+                }
+
+                $(".compTeamFirstLastLap").html(
+                  json.onTablo.compTeamFirstLastLap
+                );
+                $(".compTeamFirstS1").html(json.onTablo.compTeamFirstS1);
+                $(".compTeamFirstS2").html(json.onTablo.compTeamFirstS2);
+                $(".compTeamSecondLastLap").html(
+                  json.onTablo.compTeamSecondLastLap
+                );
+
+                $(".compDiff").each(function () {
+                  compDiff = json.onTablo.compDiff;
+                  compDiff_sumbol = compDiff.substr(0, 1);
+
+                  $(this).html(compDiff);
+
+                  if (compDiff_sumbol == "+") {
+                    // if good
+                    $(this).addClass("time_good");
+                    $(this).removeClass("time_bad");
+                  }
+                  if (compDiff_sumbol == "-") {
+                    // if bad
+                    $(this).addClass("time_bad");
+                    $(this).removeClass("time_good");
+                  }
+                });
+
+                $(".compDiffS1").each(function () {
+                  compDiffS1 = json.onTablo.compDiffS1;
+                  compDiffS1_sumbol = compDiffS1.substr(0, 1);
+
+                  $(this).html(compDiffS1);
+
+                  if (compDiffS1_sumbol == "+") {
+                    // if good
+                    $(this).addClass("time_good");
+                    $(this).removeClass("time_bad");
+                  }
+                  if (compDiffS1_sumbol == "-") {
+                    // if bad
+                    $(this).addClass("time_bad");
+                    $(this).removeClass("time_good");
+                  }
+                });
+
+                $(".compDiffS2").each(function () {
+                  compDiffS2 = json.onTablo.compDiffS2;
+                  compDiffS2_sumbol = compDiffS2.substr(0, 1);
+
+                  $(this).html(compDiffS2);
+
+                  if (compDiffS2_sumbol == "+") {
+                    // if good
+                    $(this).addClass("time_good");
+                    $(this).removeClass("time_bad");
+                  }
+                  if (compDiffS2_sumbol == "-") {
+                    // if bad
+                    $(this).addClass("time_bad");
+                    $(this).removeClass("time_good");
+                  }
+                });
+
+                $(".compTeamSecondS1").html(json.onTablo.compTeamSecondS1);
+                $(".compTeamSecondS2").html(json.onTablo.compTeamSecondS2);
+
+                //set number team
+                $(".number").html(json.onTablo.teams2[team_number].number);
+
+                //set teamName
+                $(".teamName").html(json.onTablo.teams2[team_number].teamName);
+
+                //set name pilot
+                $(".pilotName").html(
+                  json.onTablo.teams2[team_number].pilotName
+                );
+
+                //set name kart
+                $(".kart").html(json.onTablo.teams2[team_number].kart);
+
+                //set name time race left
+                $(".totalRaceTime").html(json.onTablo.totalRaceTime);
+
+                //set position
+                $(".all_teams").html(json.onTablo.teams.length);
+                $(".position").html(json.onTablo.teams2[team_number].position);
+
+                //set last lap
+                $(".lastLap").html(json.onTablo.teams2[team_number].lastLap);
+
+                //set last s1
+                $(".lastLapS1").html(
+                  json.onTablo.teams2[team_number].lastLapS1
+                );
+
+                //set last s2
+                $(".lastLapS2").html(
+                  json.onTablo.teams2[team_number].lastLapS2
+                );
+
+                //set totalOnTrack
+                in_pit = json.onTablo.teams2[team_number].isOnPit;
+                if (in_pit) {
+                  $(".th_ip_time").addClass("pit");
+                  $(".th_ip_time span").html("PITSTOP");
+                } else {
+                  $(".th_ip_time span").html("Отрезок");
+                  $(".th_ip_time").removeClass("pit");
+                }
+
+                //set segment time
+                if (
+                  json.onTablo.teams2[team_number].secondsFromPit <=
+                  time_to_show_laspittime
+                ) {
+                  //if time end
+                  $(".totalOnTrack").html(
+                    json.onTablo.teams2[team_number].lastPitMainTime
+                  );
+                  $(".totalOnTrack").addClass("pit");
+                } else {
+                  $(".totalOnTrack").removeClass("pit");
+                  $(".totalOnTrack").html(
+                    json.onTablo.teams2[team_number].totalOnTrack
+                  );
+                }
+
+                //set pitstops
+                $(".pitstops").html(json.onTablo.teams2[team_number].pitstops);
+
+                //set bestLapOnSegment
+                $(".bestLapOnSegment").html(
+                  json.onTablo.teams2[team_number].bestLapOnSegment
+                );
+
+                //set bestLapOnSegment
+                $(".bestLap").html(json.onTablo.teams2[team_number].bestLap);
+
+                //set midLap
+                $(".midLap").html(json.onTablo.teams2[team_number].midLap);
+
+                //set karts list on race
+                $(".karts_on_track").empty();
+                $.each(json.onBoard["karts_on_track"], function (key, data) {
+                  log(data.tier);
+                  switch (data.tier) {
+                    case 0:
+                      $(".karts_on_track").append(
+                        '<li class="type_bad"><span>' +
+                          data.kartnumber +
+                          "</span></li>"
+                      );
+                      break;
+                    case 1:
+                      $(".karts_on_track").append(
+                        '<li class="type_soso"><span>' +
+                          data.kartnumber +
+                          "</span></li>"
+                      );
+                      break;
+                    case 2:
+                      $(".karts_on_track").append(
+                        '<li  class="type_good"><span>' +
+                          data.kartnumber +
+                          "</span></li>"
+                      );
+                      break;
+                    default:
+                      $(".karts_on_track").append(
+                        "<li><span>" + data.kartnumber + "</span></li>"
+                      );
+                  }
+                });
+
+                //set karts list on pit
+                $(".karts_on_pit").empty();
+                $.each(json.onBoard["karts_on_pit"], function (key, data) {
+                  switch (data.tier) {
+                    case 0:
+                      $(".karts_on_pit").append(
+                        '<li class="type_bad"><span>' +
+                          data.kartnumber +
+                          "</span></li>"
+                      );
+                      break;
+                    case 1:
+                      $(".karts_on_pit").append(
+                        '<li class="type_soso"><span>' +
+                          data.kartnumber +
+                          "</span></li>"
+                      );
+                      break;
+                    case 2:
+                      $(".karts_on_pit").append(
+                        '<li  class="type_good"><span>' +
+                          data.kartnumber +
+                          "</span></li>"
+                      );
+                      break;
+                    default:
+                      $(".karts_on_pit").append(
+                        "<li><span>" + data.kartnumber + "</span></li>"
+                      );
+                  }
+                });
+
+                // set data team stats
+                $("#results").empty();
+                $("#results_pilots").empty();
+                $.each(
+                  json.onTablo.teams2[team_number].segments,
+                  function (key, data) {
+                    $("#results").append(
+                      '<tr><td class="pt_kart">' +
+                        data.kart +
+                        "</td><td>" +
+                        data.pilotName +
+                        '</td><td class="center">' +
+                        data.finishTime +
+                        '</td><td class="center">' +
+                        data.neLength +
+                        '</td><td class="center">' +
+                        data.totalPilotTime +
+                        '</td><td class="center">' +
+                        data.pitTime +
+                        "</td></tr>"
+                    );
+                  }
+                );
+
+                $.each(
+                  json.onTablo.teams2[team_number].pilots,
+                  function (key, data) {
+                    $("#results_pilots").append(
+                      '<tr><td class="pt_kart">' +
+                        data.name +
+                        "</td><td>" +
+                        data.onTrack +
+                        "</td></tr>"
+                    );
+                  }
+                );
+              },
+              error: function (e) {
+                setTimeout(update_data, update_interval_again);
+                show_err_window(true);
+
+                log("Update error :..(", "bad");
+              },
+            });
+          }
+        }
+        update_data();
+
+        //select kart
+        $(".team_list_now").change(function () {
+          selected_team_list_now = $(this).children("option:selected").val();
+          team_number = $(this).children("option:selected").val();
+
+          if (typeof compTeamNameSecond !== "undefined") {
+            window.location.replace(
+              "./team.html?team=" +
+                team_number +
+                "&compTeamNameSecond=" +
+                compTeamNameSecond +
+                "&compTeamNameFirst=" +
+                selected_team_list_now
+            );
+          } else {
+            window.location.replace(
+              "./team.html?team=" +
+                team_number +
+                "&compTeamNameFirst=" +
+                selected_team_list_now
+            );
+          }
+        });
+        $(".team_list_to_com").change(function () {
+          selected_team_list_to_com = $(this).children("option:selected").val();
+
+          if (typeof compTeamNameFirst !== "undefined") {
+            window.location.replace(
+              "./team.html?team=" +
+                team_number +
+                "&compTeamNameFirst=" +
+                compTeamNameFirst +
+                "&compTeamNameSecond=" +
+                selected_team_list_to_com
+            );
+          } else {
+            window.location.replace(
+              "./team.html?team=" +
+                team_number +
+                "&compTeamNameSecond=" +
+                selected_team_list_to_com
+            );
+          }
+        });
+      });
+    </script>
+    <script></script>
+  </head>
+  <body>
+    <div id="err">Offline</div>
+    <div id="menu_icon">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+    <div class="main_menu_layer">
+      <div class="main_menu_layer_in">
+        <div class="mml_col">
+          <a href="./board.html?theme=light" class="dark">табло светлое</a>
+          <a href="./board.html" class="dark">табло темное</a>
+          <a href="./team.html" class="dark">команда</a>
+          <a href="./onboard.html?kart=1&screen=default" class="dark"
+            >на руле (простой)</a
+          >
+        </div>
+      </div>
+    </div>
+    <div class="conatiner" id="team">
+      <div class="team_head">
+        <div class="th_info">
+          <div class="th_name">
+            <span class="number">--</span> | <span class="teamName">----</span>
+          </div>
+          <div class="th_now_on_kart">
+            <div><strong class="pilotName">-----</strong></div>
+            <div>Карт <span class="kart">--</span></div>
+          </div>
+          <div class="th_race_info">
+            <div class="th_race_time">
+              Время гонки
+              <div class="totalRaceTime">--:--:--</div>
+            </div>
+            <div class="th_race_pos">
+              Позиция
+              <div>
+                <span class="position">--</span>/<span class="all_teams"
+                  >--</span
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="bh_comparison">
+          <div class="bh_c_top">
+            <div class="bh_c_team">
+              <select name="" class="team_list team_list_now"></select>
+            </div>
+            <div class="bh_c_team bh_c_team_right">
+              <select
+                name=""
+                class="team_list team_list_to_com"
+                style="display: none"
+              ></select>
+            </div>
+          </div>
+          <div class="bh_c_teams_box">
+            <div class="bh_lang compLag lag">-.---</div>
+            <div class="bh_c_team_item">
+              <div class="bh_c_ti_time_box">
+                <span
+                  class="bh_c_ti_time_lastlap firstLastLap lastLap compTeamFirstLastLap"
+                  >-.---</span
+                >
+              </div>
+              <div class="bh_c_ti_sector_box left">
+                <div class="bh_c_ti_sb_item">
+                  <div class="bh_c_ti_sbi_last_time">
+                    S1 <span class="compTeamFirstS1 lastLapS2">-.---</span>
+                  </div>
+                </div>
+                <div class="bh_c_ti_sb_item">
+                  <div class="bh_c_ti_sbi_last_time">
+                    S1 <span class="compTeamFirstS2 lastLapS2">-.---</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="bh_c_team_item bh_c_ti_sb_left">
+              <div class="bh_c_ti_time_box">
+                <span class="bh_c_ti_time_lastlap compTeamSecondLastLap"
+                  >-.---</span
+                >
+                <span class="bh_c_ti_time_lang compDiff">-.---</span>
+              </div>
+              <div class="bh_c_ti_sector_box">
+                <div class="bh_c_ti_sb_item">
+                  <div class="bh_c_ti_sbi_lang compDiffS1">-.---</div>
+                  <div class="bh_c_ti_sbi_last_time">
+                    S1 <span class="compTeamSecondS1">-.---</span>
+                  </div>
+                </div>
+                <div class="bh_c_ti_sb_item">
+                  <div class="bh_c_ti_sbi_lang compDiffS2">-.---</div>
+                  <div class="bh_c_ti_sbi_last_time">
+                    S1 <span class="compTeamSecondS2">-.---</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="th_info_pits">
+          <div class="th_ip_time">
+            <span>Отрезок</span>
+            <div class="totalOnTrack">--:--:--</div>
+          </div>
+          <div class="th_ip_pits_num">
+            Питов
+            <div class="pitstops">--</div>
+          </div>
+        </div>
+      </div>
+      <div class="th_laps_and_pits">
+        <div class="th_laps_ap_time_item">
+          Лк на отрезке
+          <div class="bestLapOnSegment">-.---</div>
+        </div>
+        <div class="th_laps_ap_time_item">
+          Лк гонки
+          <div class="bestLap">-.---</div>
+        </div>
+        <div class="th_laps_ap_time_item">
+          Среднее время на отрезке
+          <div class="midLap">-.---</div>
+        </div>
+        <div class="th_laps_ap_onpits_item">
+          <div class="onboard_info_pits">
+            <div class="oip_karts oip_karts_in_race">
+              <div class="oip_name">
+                <span>в гонке</span>
+              </div>
+              <ul class="karts_on_track"></ul>
+            </div>
+            <div class="oip_karts oip_karts_in_pit">
+              <div class="oip_name">
+                <span>на пите</span>
+              </div>
+              <ul class="karts_on_pit"></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="strategy_info">
+        <div class="segments_table">
+          <table class="team_table">
+            <tr class="team_table_head">
+              <td class="pt_kart">Карт</td>
+              <td>Пилот</td>
+              <td class="center">Время заезда на пит</td>
+              <td class="center">Время отрезка</td>
+              <td class="center">Всего у пилота</td>
+              <td class="center">Время пита</td>
+            </tr>
+            <tbody id="results"></tbody>
+          </table>
+        </div>
+        <div class="pilots_table">
+          <table class="team_table">
+            <tr class="team_table_head">
+              <td class="pt_kart">Имя</td>
+              <td>Всего у пилота</td>
+            </tr>
+            <tbody id="results_pilots"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

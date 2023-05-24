@@ -1,0 +1,17 @@
+@import "./vars/color.declaration";
+
+// TODO: add font + icons
+// https://fontsource.org/docs/getting-started
+@import "./share"; // mixins and variables to use around .modules
+@import "./general";
+
+:root {
+  // for breakpoint getters
+  --mobile: #{get-breakpoint-width(mobile)};
+  --tablet: #{get-breakpoint-width(tablet)};
+  --desktop: #{get-breakpoint-width(desktop)};
+  --wide: #{get-breakpoint-width(wide)};
+}
+
+// TODO: berakpoints to js
+// TODO: show-breakpoints disable from js

@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+	<title>Onboard</title>
+	<script src="./js/jquery.js"></script>
+	<link rel="stylesheet" type="text/css" href="./css/style.css">
+	<script>
+		$(document).ready(function(){
+
+
+			/* ================== get GET vars  ==================*/
+			var getUrlParameter = function getUrlParameter(sParam) {
+			    var sPageURL = window.location.search.substring(1),
+			        sURLVariables = sPageURL.split('&'),
+			        sParameterName,
+			        i;
+
+			    for (i = 0; i < sURLVariables.length; i++) {
+			        sParameterName = sURLVariables[i].split('=');
+
+			        if (sParameterName[0] === sParam) {
+			            return sParameterName[1] === undefined ? true : decodeURIComponent(sParameterName[1]);
+			        }
+			    }
+			}
+
+			/* ================== menu  ==================*/
+
+			$('#menu_icon').click(function(){
+				$(this).toggleClass('open');
+				$(".main_menu_layer").toggleClass('opened');
+			});
+
+			/* ================== init vars  ==================*/
+
+			var debug = true;//debug mode
+			var link   = window.location.origin;
+			var number_selected_kart = getUrlParameter('kart');
+			var name_selected_screen = getUrlParameter('screen');
+
+			if (name_selected_screen == '' && typeof name_selected_screen == 'undefined') {
+				name_selected_screen = 'default';
+			}
+
+			var url = link+'/getmaininfo.json?kart='+number_selected_kart;
+			var update_interval = 1000; //update data interval msek
+			var update_interval_again = 10000; //again try interval if error
+			var update_data_timer;
+			var flag_error = 0; //show err msg
+			var flag_table_init = false;//check if table was created
+			var check_if_on_tv = getUrlParameter('hide');
+			var id_display;//id disaply to show
+	    	var position;
+	    	var timeDiff;
+	    	var timeDiff_sumbol;
+	    	var sector_1_lag;
+	    	var sector_1_time;
+	    	var sector_2_lag;
+	    	var sector_2_time;
+	    	var check_race;
+
+			/* ================== log record  ==================*/
+			function log(text,type,show_mode) { 
+				if (show_mode == 'debug') {
+					if (debug) { //check debug true
+						switch(type){
+							case 'good':
+								console.info('%c'+text, 'background: #57b567; color: #fff');
+								
+							break;
+							case 'bad':
+								console.error('%c'+text, 'background: #b55757; color: #fff');
+								
+							break;
+							default:
+								console.log(text);
+								
+							break;
+						}	
+					}
+				}  else {
+					switch(type){
+						case 'good':
+							console.info('%c'+text, 'background: #57b567; color: #fff');
+							
+						break;
+						case 'bad':
+							console.error('%c'+text, 'background: #b55757; color: #fff');
+							
+						break;
+						default:
+							console.log(text);
+							
+						break;
+					}
+				}
+			}
+
+			/* ================== show hide mass error   ==================*/
+			function show_err_window(status){
+				if (status) {
+					$('#err').show();
+				} else {
+					$('#err').hide();
+				}
+				
+			}
+
+			$("#kart_list").val(number_selected_kart);
+
+			/* ================== update   ==================*/
+			function update_data(check_cval){
+				
+				$.ajax({
+					type: 'GET',
+				    url: url,
+				    dataType: 'json',
+				    success: function(json) {
+				    	check_race = json.onTablo.isRace;
+
+						show_err_window(false);
+						setTimeout(update_data, update_interval);
+
+				    	//set time lag
+				    	$('.timeLag').each(function(){
+				    		timeLag = json.onBoard.timeLag;
+				    		timeLag_sumbol = timeLag.substr(0, 1);
+
+				    		$(this).html(timeLag);
+
+						    if (timeLag_sumbol == '+') { // if good
+					    		$(this).addClass('time_good');
+					    		$(this).removeClass('time_bad');
+							}
+							if (timeLag_sumbol == '-') { // if bad
+								$(this).addClass('time_bad');
+								$(this).removeClass('time_good');
+							}
+				    	});
+
+				    	//set last lap
+				    	$('.lastLap').html(json.onBoard.lastLap);
+
+				    	//set sector 1
+				    	$('.sector_1_lag').each(function(){
+				    		sector_1_lag = json.onBoard.sector_1_lag;
+				    		sector_1_lag_sumbol = sector_1_lag.substr(0, 1);
+
+				    		$(this).html(sector_1_lag);
+
+						    if (sector_1_lag_sumbol == '+') { // if good
+						    	$(this).parents('.onboard_stats_item').addClass('onboard_positive');
+						    	$(this).parents('.onboard_stats_item').removeClass('onboard_negative');
+					    		$(this).addClass('time_good');
+					    		$(this).removeClass('time_bad');
+							}
+							if (sector_1_lag_sumbol == '-') { // if bad
+								$(this).parents('.onboard_stats_item').removeClass('onboard_positive');
+						    	$(this).parents('.onboard_stats_item').addClass('onboard_negative');
+								$(this).addClass('time_bad');
+								$(this).removeClass('time_good');
+							}
+				    	});
+				    	$('.sector_1_time').html(json.onBoard.sector_1_time);
+
+				    	//set sector 2
+				    	$('.sector_2_lag').each(function(){
+				    		sector_2_lag = json.onBoard.sector_2_lag;
+				    		sector_2_lag_sumbol = sector_2_lag.substr(0, 1);
+
+				    		$(this).html(sector_2_lag);
+
+						    if (sector_2_lag_sumbol == '+') { // if good
+						    	$(this).parents('.onboard_stats_item').addClass('onboard_positive');
+						    	$(this).parents('.onboard_stats_item').removeClass('onboard_negative');
+					    		$(this).addClass('time_good');
+					    		$(this).removeClass('time_bad');
+							}
+							if (sector_2_lag_sumbol == '-') { // if bad
+								$(this).parents('.onboard_stats_item').removeClass('onboard_positive');
+						    	$(this).parents('.onboard_stats_item').addClass('onboard_negative');
+								$(this).addClass('time_bad');
+								$(this).removeClass('time_good');
+							}
+				    	});
+				    	$('.sector_2_time').html(json.onBoard.sector_2_time);
+
+				    	//set position
+				    	
+				    	$('.position').each(function(){
+				    		position = json.onBoard.position;
+				    		$(this).html(position);
+
+				    		switch(position) {
+							  case '1':
+							    $(this).addClass('first');
+								$(this).removeClass('second');
+								$(this).removeClass('third');
+							    break;
+							  case '2':
+							    $(this).addClass('second');
+								$(this).removeClass('third');
+								$(this).removeClass('first');
+							    break;
+							  case '3':
+							    $(this).addClass('third');
+								$(this).removeClass('second');
+								$(this).removeClass('first');
+							    break;
+							  default:
+							    $(this).removeClass('third');
+								$(this).removeClass('first');
+								$(this).removeClass('second');
+							}
+
+				    	});
+				    	$('.position_bytime').each(function(){
+				    		position_bytime = json.onBoard.position_by_time;
+				    		$(this).html(position_bytime);
+
+				    		switch(position_bytime) {
+							  case '1':
+							    $(this).addClass('first');
+								$(this).removeClass('second');
+								$(this).removeClass('third');
+							    break;
+							  case '2':
+							    $(this).addClass('second');
+								$(this).removeClass('third');
+								$(this).removeClass('first');
+							    break;
+							  case '3':
+							    $(this).addClass('third');
+								$(this).removeClass('second');
+								$(this).removeClass('first');
+							    break;
+							  default:
+							    $(this).removeClass('third');
+								$(this).removeClass('first');
+								$(this).removeClass('second');
+							}
+
+				    	});
+
+				    	//set other postions
+				    	$('.first_pos_name').html(json.onBoard.first_pos_name);
+				    	$('.first_pos_time').html(json.onBoard.first_pos_time);
+				    	$('.second_pos_name').html(json.onBoard.second_pos_name);
+				    	$('.second_pos_time').html(json.onBoard.second_pos_time);
+				    	$('.third_pos_name').html(json.onBoard.third_pos_name);
+				    	$('.third_pos_time').html(json.onBoard.third_pos_time);
+
+				    	//set segment time
+				    	$('.totalOnTrack').html(json.onBoard.totalOnTrack);
+
+				    	//set lap count
+				    	$('.lapCount').html(json.onBoard.lapCount);
+
+				    	//set first position
+				    	$('.firstpos_lag').html(json.onBoard.firstpos_lag);
+
+				    	//set nex position
+				    	$('.nextpos_lag').html(json.onBoard.nextpos_lag);
+
+				    	//set prev position
+				    	$('.prevpos_lag').html(json.onBoard.prevpos_lag);
+
+				    	//set position by time
+				    	$('.position_by_time').html(json.onBoard.position_by_time);
+
+				    	//set karts list on race
+				    	$('.karts_on_track').empty();
+				    	$.each(json.onBoard['karts_on_track'], function(key, data) {
+
+				    		switch(data.tier) {
+							  case 0:
+							    $('.karts_on_track').append('<li class="type_bad"><span>'+data.kartnumber+'</span></li>');
+							    break;
+							  case 1:
+							    $('.karts_on_track').append('<li class="type_soso"><span>'+data.kartnumber+'</span></li>');
+							    break;
+							  case 2:
+							    $('.karts_on_track').append('<li  class="type_good"><span>'+data.kartnumber+'</span></li>');
+							    break;
+							  default:
+							    $('.karts_on_track').append('<li><span>'+data.kartnumber+'</span></li>');
+							}
+
+				    	});
+
+				    	//set karts list on pit
+				    	$('.karts_on_pit').empty();
+				    	$.each(json.onBoard['karts_on_pit'], function(key, data) {
+				    		
+				    		switch(data.tier) {
+							  case 0:
+							    $('.karts_on_pit').append('<li class="type_bad"><span>'+data.kartnumber+'</span></li>');
+							    break;
+							  case 1:
+							    $('.karts_on_pit').append('<li class="type_soso"><span>'+data.kartnumber+'</span></li>');
+							    break;
+							  case 2:
+							    $('.karts_on_pit').append('<li  class="type_good"><span>'+data.kartnumber+'</span></li>');
+							    break;
+							  default:
+							    $('.karts_on_pit').append('<li><span>'+data.kartnumber+'</span></li>');
+							}
+
+				    	});
+				    },
+				    error: function(e) {
+				    	setTimeout(update_data, update_interval_again);
+				        show_err_window(true);
+				        log('Update error :..(', 'bad');
+				    }
+				});
+			}
+			update_data();
+
+			//select kart
+			$('#kart_list').change(function() {
+				selected_kart = $(this).children("option:selected").val();
+				window.location.replace("./onboard.html?kart="+selected_kart+'&screen='+name_selected_screen);
+			});
+			
+			$('.onboard_display.active').removeClass('active');
+			$('#onboard_'+name_selected_screen).addClass('active');
+
+			//slect config display
+			$('.onboard_how_display').click(function() {
+				id_display = $(this).data('display');
+				window.location.replace("./onboard.html?kart="+number_selected_kart+'&screen='+id_display);
+
+				$('.onboard_display.active').removeClass('active');
+				$('#onboard_'+id_display).addClass('active');
+
+				$('#menu_icon').toggleClass('open');
+				$(".main_menu_layer").fadeToggle();
+			});
+
+
+		});
+
+
+
+	</script>
+</head>
+<body id="onboard_page">
+	<div id="err">
+		Offline
+	</div>
+	<div id="menu_icon" class="menu_onboard">
+	   <span></span>
+	   <span></span>
+	   <span></span>
+	</div>
+	<select name="" class="mml_kart_list menu_onboard" id="kart_list">
+		<option value="1">1</option>
+		<option value="2">2</option>
+		<option value="3">3</option>
+		<option value="4">4</option>
+		<option value="5">5</option>
+		<option value="6">6</option>
+		<option value="7">7</option>
+		<option value="8">8</option>
+		<option value="9">9</option>
+		<option value="10">10</option>
+		<option value="11">11</option>
+		<option value="12">12</option>
+		<option value="13">13</option>
+		<option value="14">14</option>
+		<option value="15">15</option>
+		<option value="16">16</option>
+		<option value="17">17</option>
+		<option value="18">18</option>
+		<option value="19">19</option>
+		<option value="20">20</option>
+		<option value="21">21</option>
+		<option value="33">33</option>
+		<option value="44">44</option>
+		<option value="69">69</option>
+	</select>
+	<div class="main_menu_layer">
+	   <div class="mml_col_title">
+	   </div>
+	   <div class="main_menu_layer_in">
+	       <div class="mml_col">
+	       	<a href="./board.html?theme=light" class="dark">табло светлое</a>
+	         <a href="./board.html" class="dark">табло темное</a>
+	        <a href="./team.html" class="dark">команда</a>
+	        <a href="./onboard.html?kart=1&screen=default" class="dark">на руле (простой)</a>
+	      </div>
+	      <div class="mml_col">
+	         <a href="#" class="onboard_how_display" data-display="sprint"><span>СПРИНТ</span></a>
+	         <a href="#" class="onboard_how_display" data-display="marafon"><span>Марафон</span></a>
+	         <a href="#" class="onboard_how_display" data-display="kvala"><span>Квала</span></a>
+	         <a href="#" class="onboard_how_display" data-display="race"><span>Только время</span></a>
+	      </div>
+	   </div>
+	</div>
+
+	<div class="conatiner onboard">
+		<div id="onboard_default" class="active onboard_display">
+			<div class="onboard_box">
+				<div class="onboard_time">
+					<div class="onbord_lang_time timeLag">
+						--.--
+					</div>
+					<div class="onbord_last_time lastLap">
+						--.--
+					</div>
+				</div>
+				<div class="onboard_stats">
+					<div class="onboard_stats_item onboard_section_1">
+						<div class="onboard_sec1_lang oci_lang sector_1_lag">-0.232</div>
+						<div class="onboard_sec1_time oci_time sector_1_time">--.--</div>
+					</div>
+					<div class="onboard_stats_item onboard_section_2">
+						<div class="onboard_sec2_lang oci_lang sector_2_lag"></div>
+						<div class="onboard_sec2_time oci_time sector_2_time">--.--</div>
+					</div>
+					<div class="onboard_position position">
+						-
+					</div>
+				</div>
+			</div>
+		</div>
+		<div id="onboard_race" class="onboard_display">
+			<div class="onboard_box">
+				<div class="onboard_time">
+					<div class="onbord_lang_time timeLag">
+						--.--
+					</div>
+					<div class="onbord_last_time lastLap">
+						--.--
+					</div>
+				</div>
+				<div class="onboard_stats">
+					<div class="onboard_stats_item onboard_section_1">
+						<div class="onboard_sec1_lang oci_lang sector_1_lag"></div>
+						<div class="onboard_sec1_time oci_time sector_1_time">--.--</div>
+					</div>
+					<div class="onboard_stats_item onboard_section_2">
+						<div class="onboard_sec2_lang oci_lang sector_2_lag"></div>
+						<div class="onboard_sec2_time oci_time sector_2_time">--.--</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div id="onboard_kvala" class="onboard_display">
+			<div class="onboard_box">
+				<div class="onboard_info_box">
+					<div class="oib_pilots">
+						<div class="oib_pilot_item">
+							<div class="oib_item_title first_pos_name">--</div>
+							<div class="oib_item_time first_pos_time">--.--</div>
+						</div>
+						<div class="oib_pilot_item">
+							<div class="oib_item_title second_pos_name">--</div>
+							<div class="oib_item_time second_pos_time">--.--</div>
+						</div>
+						<div class="oib_pilot_item">
+							<div class="oib_item_title third_pos_name">--</div>
+							<div class="oib_item_time third_pos_time">--.--</div>
+						</div>
+					</div>
+					<div class="oib_race_info">
+						<div class="oib_ri_item oib_ri_part">
+							<div class="oib_ri_item_title">
+								Время отрезка
+							</div>
+							<div class="oib_ri_time totalOnTrack">
+								--.--
+							</div>
+						</div>
+						<div class="oib_ri_item oib_ri_laps">
+							<div class="oib_ri_item_title">
+								Кругов
+							</div>
+							<div class="oib_ri_time lapCount">
+								--.--
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="onboard_time_box">
+					<div class="onboard_time">
+						<div class="onbord_lang_time timeLag">
+							--.--
+						</div>
+						<div class="onbord_last_time lastLap">
+							--.--
+						</div>
+					</div>
+					<div class="onboard_stats">
+						<div class="onboard_stats_item onboard_section_1">
+							<div class="onboard_sec1_lang oci_lang sector_1_lag"></div>
+							<div class="onboard_sec1_time oci_time sector_1_time">--.--</div>
+						</div>
+						<div class="onboard_stats_item onboard_section_2">
+							<div class="onboard_sec2_lang oci_lang sector_2_lag"></div>
+							<div class="onboard_sec2_time oci_time sector_2_time">--.--</div>
+						</div>
+						<div class="onboard_position position_bytime">
+							-
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div id="onboard_sprint" class="onboard_display">
+			<div class="onboard_box">
+				<div class="onboard_info_box">
+					<div class="oib_times">
+						<div class="oib_pilot_item">
+							<div class="oib_item_title">Впереди</div>
+							<div class="oib_item_time nextpos_lag">--.--</div>
+						</div>
+						<div class="oib_pilot_item">
+							<div class="oib_item_title">Позади</div>
+							<div class="oib_item_time prevpos_lag">--.--</div>
+						</div>
+					</div>
+					<div class="oib_race_info">
+						<div class="oib_ri_item oib_2_colum">
+							<div class="oib_ri_item_col oib_ri_position">
+								<div class="oib_ri_item_title">
+									Позиция
+								</div>
+								<div class="oib_ri_time position">
+									--
+								</div>
+							</div>
+							<div class="oib_ri_item_col oib_ri_bytime">
+								<div class="oib_ri_item_title">
+									Время
+								</div>
+								<div class="oib_ri_time position_by_time position_bytime">
+									--
+								</div>
+							</div>
+						</div>
+						<div class="oib_ri_item oib_ri_laps">
+							<div class="oib_ri_item_title">
+								Кругов
+							</div>
+							<div class="oib_ri_time lapCount">
+								-
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="onboard_time_box">
+					<div class="onboard_time">
+						<div class="onbord_lang_time timeLag">
+							--.--
+						</div>
+						<div class="onbord_last_time lastLap">
+							--.--
+						</div>
+					</div>
+					<div class="onboard_stats">
+						<div class="onboard_stats_item onboard_section_1">
+							<div class="onboard_sec1_lang oci_lang sector_1_lag"></div>
+							<div class="onboard_sec1_time oci_time sector_1_time">--.--</div>
+						</div>
+						<div class="onboard_stats_item onboard_section_2">
+							<div class="onboard_sec2_lang oci_lang sector_2_lag"></div>
+							<div class="onboard_sec2_time oci_time sector_2_time">--.--</div>
+						</div>
+						<div class="onboard_position position">
+							-
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div id="onboard_marafon" class="onboard_display">
+			<div class="onboard_box">
+				<div class="onboard_info_timing">
+					<div class="onboard_info_box">
+						<div class="oib_times">
+							<div class="oib_pilot_item">
+								<div class="oib_item_title">1ое место</div>
+								<div class="oib_item_time firstpos_lag">--.--</div>
+							</div>
+							<div class="oib_pilot_item">
+								<div class="oib_item_title">Впереди</div>
+								<div class="oib_item_time nextpos_lag">--.--</div>
+							</div>
+							<div class="oib_pilot_item">
+								<div class="oib_item_title">Позади</div>
+								<div class="oib_item_time prevpos_lag">--.--</div>
+							</div>
+						</div>
+						<div class="oib_race_info">
+							<div class="oib_ri_item oib_ri_part">
+								<div class="oib_ri_item_title">
+									Время отрезка
+								</div>
+								<div class="oib_ri_time totalOnTrack">
+									--.--
+								</div>
+							</div>
+							<div class="oib_ri_item oib_ri_position">
+								<div class="oib_ri_item_title">
+									Позиция
+								</div>
+								<div class="oib_ri_time position">
+									-
+								</div>
+							</div>
+						</div>
+					</div>
+					<div class="onboard_time_box">
+						<div class="onboard_time">
+							<div class="onbord_lang_time timeLag">
+								--.--
+							</div>
+							<div class="onbord_last_time lastLap">
+								--.--
+							</div>
+						</div>
+						<div class="onboard_stats">
+							<div class="onboard_stats_item onboard_section_1">
+							<div class="onboard_sec1_lang oci_lang sector_1_lag"></div>
+							<div class="onboard_sec1_time oci_time sector_1_time">--.--</div>
+						</div>
+						<div class="onboard_stats_item onboard_section_2">
+							<div class="onboard_sec2_lang oci_lang sector_2_lag"></div>
+							<div class="onboard_sec2_time oci_time sector_2_time">--.--</div>
+						</div>
+						</div>
+					</div>
+				</div>
+				<div class="onboard_info_pits">
+					
+					<div class="oip_karts oip_karts_in_race">
+						<div class="oip_name">
+							<span>в гонке</span>
+						</div>
+						<ul class="karts_on_track">
+						</ul>
+					</div>
+					<div class="oip_karts oip_karts_in_pit">
+						<div class="oip_name">
+							<span>на пите</span>
+						</div>
+						<ul class="karts_on_pit">
+						</ul>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</body>
+</html>
