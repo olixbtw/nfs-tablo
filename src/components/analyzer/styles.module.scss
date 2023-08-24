@@ -1,0 +1,16 @@
+.wrapper {
+  padding: 20px;
+}
+
+.table {
+  gap: 20px;
+  display: flex;
+  flex-direction: column;
+}
+.row {
+  display: flex;
+  gap: 30px;
+}
+.column {
+  min-width: 100px;
+}
